@@ -15,8 +15,8 @@ import {
   aws_route53_targets,
   aws_cloudfront,
 } from 'aws-cdk-lib';
-import { CorsHttpMethod, HttpApi, IHttpApi, PayloadFormatVersion } from '@aws-cdk/aws-apigatewayv2-alpha';
-import { HttpLambdaIntegration } from '@aws-cdk/aws-apigatewayv2-integrations-alpha';
+import { CorsHttpMethod, HttpApi, IHttpApi, PayloadFormatVersion } from 'aws-cdk-lib/aws-apigatewayv2';
+import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { config } from 'dotenv';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
@@ -26,6 +26,7 @@ export interface AWSAdapterStackProps extends StackProps {
   region?: string;
   serverHandlerPolicies?: PolicyStatement[];
   zoneName?: string;
+  bucket?: aws_s3.IBucket;
 }
 
 export class AWSAdapterStack extends Stack {
@@ -52,7 +53,7 @@ export class AWSAdapterStack extends Stack {
     this.serverHandler = new aws_lambda.Function(this, 'LambdaServerFunctionHandler', {
       code: new aws_lambda.AssetCode(serverPath!),
       handler: 'index.handler',
-      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      runtime: aws_lambda.Runtime.NODEJS_22_X,
       timeout: Duration.minutes(15),
       memorySize,
       logRetention,
@@ -75,20 +76,23 @@ export class AWSAdapterStack extends Stack {
       }),
     });
 
-    this.bucket = new aws_s3.Bucket(this, 'StaticContentBucket', {
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-    });
+    if (props.bucket) {
+      this.bucket = props.bucket;
+    } else {
+      this.bucket = new aws_s3.Bucket(this, 'StaticContentBucket', {
+        removalPolicy: RemovalPolicy.DESTROY,
+        autoDeleteObjects: true,
+      });
+    }
 
     if (process.env.FQDN) {
       this.hostedZone = aws_route53.HostedZone.fromLookup(this, 'HostedZone', {
         domainName,
       }) as aws_route53.HostedZone;
 
-      this.certificate = new aws_certificatemanager.DnsValidatedCertificate(this, 'DnsValidatedCertificate', {
+      this.certificate = new aws_certificatemanager.Certificate(this, 'DnsValidatedCertificate', {
         domainName: process.env.FQDN!,
-        hostedZone: this.hostedZone,
-        region: 'us-east-1',
+        validation: aws_certificatemanager.CertificateValidation.fromDns(this.hostedZone),
       });
     }
 
@@ -130,7 +134,7 @@ export class AWSAdapterStack extends Stack {
       },
     });
 
-    const s3Origin = new aws_cloudfront_origins.S3Origin(this.bucket, {});
+    const s3Origin = aws_cloudfront_origins.S3BucketOrigin.withBucketDefaults(this.bucket);
     routes.forEach((route) => {
       distribution.addBehavior(route, s3Origin, {
         viewerProtocolPolicy: aws_cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
