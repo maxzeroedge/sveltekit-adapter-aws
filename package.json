@@ -3,12 +3,12 @@
   "description": "SvelteKit to deploy your project using AWS CDK.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MikeBild/sveltekit-adapter-aws.git"
+    "url": "git+https://github.com/maxzeroedge/sveltekit-adapter-aws.git"
   },
   "bugs": {
-    "url": "https://github.com/MikeBild/sveltekit-adapter-aws/issues"
+    "url": "https://github.com/maxzeroedge/sveltekit-adapter-aws/issues"
   },
-  "homepage": "https://github.com/MikeBild/sveltekit-adapter-aws#readme",
+  "homepage": "https://github.com/maxzeroedge/sveltekit-adapter-aws#readme",
   "license": "MIT",
   "keywords": [
     "sveltekit",
