@@ -26,7 +26,8 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "postinstall": "tsc"
   },
   "devDependencies": {
     "@types/fs-extra": "11.0.4",
