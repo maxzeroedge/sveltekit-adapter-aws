@@ -14,6 +14,7 @@ import {
   aws_route53,
   aws_route53_targets,
   aws_cloudfront,
+  aws_iam,
 } from 'aws-cdk-lib';
 import { CorsHttpMethod, HttpApi, IHttpApi, PayloadFormatVersion } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
@@ -63,6 +64,7 @@ export class AWSAdapterStack extends Stack {
     props.serverHandlerPolicies?.forEach((policy) => this.serverHandler.addToRolePolicy(policy));
 
     this.httpApi = new HttpApi(this, 'API', {
+      apiName: props.stackName + 'API',
       corsPreflight: {
         allowHeaders: ['*'],
         allowMethods: [CorsHttpMethod.ANY],
@@ -80,6 +82,7 @@ export class AWSAdapterStack extends Stack {
       this.bucket = new aws_s3.Bucket(this, 'StaticContentBucket', {
         removalPolicy: RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
+        websiteIndexDocument: 'index.html',
       });
     }
 
@@ -121,7 +124,31 @@ export class AWSAdapterStack extends Stack {
       },
     });
 
-    const s3Origin = aws_cloudfront_origins.S3BucketOrigin.withBucketDefaults(this.bucket);
+    this.bucket.addToResourcePolicy(
+      new PolicyStatement({
+        effect: aws_iam.Effect.ALLOW,
+        principals: [new aws_iam.ServicePrincipal('cloudfront.amazonaws.com')],
+        actions: ['s3:GetObject'],
+        resources: [`${this.bucket.bucketArn}/*`],
+        conditions: {
+          StringEquals: {
+            'AWS:SourceArn': `arn:aws:cloudfront::${this.account}:distribution/${distribution.distributionId}`,
+          },
+        },
+      })
+    );
+    
+    const oac = new aws_cloudfront.CfnOriginAccessControl(this, 'OAC', {
+      originAccessControlConfig: {
+        name: 'StaticContentOAC',
+        originAccessControlOriginType: 's3',
+        signingBehavior: 'always',
+        signingProtocol: 'sigv4',
+      },
+    });
+
+
+    const s3Origin = new aws_cloudfront_origins.S3StaticWebsiteOrigin(this.bucket);
     routes.forEach((route) => {
       distribution.addBehavior(route, s3Origin, {
         viewerProtocolPolicy: aws_cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
