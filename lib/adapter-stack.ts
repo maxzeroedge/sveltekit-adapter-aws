@@ -26,15 +26,15 @@ export interface AWSAdapterStackProps extends StackProps {
   region?: string;
   serverHandlerPolicies?: PolicyStatement[];
   zoneName?: string;
-  bucket?: aws_s3.IBucket;
+  uiBucket?: aws_s3.IBucket;
+  certificate: aws_certificatemanager.ICertificate;
+  hostedZone: aws_route53.IHostedZone;
 }
 
 export class AWSAdapterStack extends Stack {
   bucket: aws_s3.IBucket;
   serverHandler: aws_lambda.IFunction;
   httpApi: IHttpApi;
-  hostedZone: aws_route53.IHostedZone;
-  certificate: aws_certificatemanager.ICertificate;
 
   constructor(scope: Construct, id: string, props: AWSAdapterStackProps) {
     super(scope, id, props);
@@ -47,8 +47,6 @@ export class AWSAdapterStack extends Stack {
     const logRetention = parseInt(process.env.LOG_RETENTION_DAYS!) || 7;
     const memorySize = parseInt(process.env.MEMORY_SIZE!) || 128;
     const environment = config({ path: projectPath });
-    const [_, zoneName, ...MLDs] = process.env.FQDN?.split('.') || [];
-    const domainName = [zoneName, ...MLDs].join(".");
 
     this.serverHandler = new aws_lambda.Function(this, 'LambdaServerFunctionHandler', {
       code: new aws_lambda.AssetCode(serverPath!),
@@ -76,23 +74,12 @@ export class AWSAdapterStack extends Stack {
       }),
     });
 
-    if (props.bucket) {
-      this.bucket = props.bucket;
+    if (props.uiBucket) {
+      this.bucket = props.uiBucket;
     } else {
       this.bucket = new aws_s3.Bucket(this, 'StaticContentBucket', {
         removalPolicy: RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
-      });
-    }
-
-    if (process.env.FQDN) {
-      this.hostedZone = aws_route53.HostedZone.fromLookup(this, 'HostedZone', {
-        domainName,
-      }) as aws_route53.HostedZone;
-
-      this.certificate = new aws_certificatemanager.Certificate(this, 'DnsValidatedCertificate', {
-        domainName: process.env.FQDN!,
-        validation: aws_certificatemanager.CertificateValidation.fromDns(this.hostedZone),
       });
     }
 
@@ -106,7 +93,7 @@ export class AWSAdapterStack extends Stack {
         ? aws_certificatemanager.Certificate.fromCertificateArn(
             this,
             'DomainCertificate',
-            this.certificate.certificateArn
+            props.certificate.certificateArn
           )
         : undefined,
       defaultBehavior: {
@@ -148,7 +135,7 @@ export class AWSAdapterStack extends Stack {
       new aws_route53.ARecord(this, 'ARecord', {
         recordName: process.env.FQDN,
         target: aws_route53.RecordTarget.fromAlias(new aws_route53_targets.CloudFrontTarget(distribution)),
-        zone: this.hostedZone,
+        zone: props.hostedZone,
       });
     }
 
