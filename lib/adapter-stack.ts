@@ -84,7 +84,7 @@ export class AWSAdapterStack extends Stack {
       this.bucket = new aws_s3.Bucket(this, 'StaticContentBucket', {
         removalPolicy: RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
-        websiteIndexDocument: 'index.html',
+        // websiteIndexDocument: 'index.html',
       });
     }
 
@@ -113,18 +113,8 @@ export class AWSAdapterStack extends Stack {
       cachePolicy: aws_cloudfront.CachePolicy.CACHING_DISABLED,
     };
 
-    
-    const oac = new aws_cloudfront.CfnOriginAccessControl(this, 'OAC', {
-      originAccessControlConfig: {
-        name: 'StaticContentOAC',
-        originAccessControlOriginType: 's3',
-        signingBehavior: 'always',
-        signingProtocol: 'sigv4',
-      },
-    });
-    const s3Origin = aws_cloudfront_origins.S3BucketOrigin.withOriginAccessControl(this.bucket, {
-      originAccessControlId: oac.attrId
-    });
+    const s3Origin = aws_cloudfront_origins.S3BucketOrigin.withOriginAccessControl(this.bucket);
+    // const s3Origin = new aws_cloudfront_origins.S3StaticWebsiteOrigin(this.bucket);
     const s3OriginBehaviour = {
       compress: true,
       viewerProtocolPolicy: aws_cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -136,7 +126,7 @@ export class AWSAdapterStack extends Stack {
     const distribution = new aws_cloudfront.Distribution(this, 'CloudFrontDistribution', {
       priceClass: aws_cloudfront.PriceClass.PRICE_CLASS_100,
       enabled: true,
-      defaultRootObject: '',
+      defaultRootObject: props.defaultStaticBehaviour ? 'index.html' : '',
       sslSupportMethod: aws_cloudfront.SSLMethod.SNI,
       domainNames: process.env.FQDN ? [process.env.FQDN!] : [],
       certificate: process.env.FQDN
