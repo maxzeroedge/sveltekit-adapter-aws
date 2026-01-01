@@ -19,6 +19,25 @@ export interface AWSAdapterProps {
   env?: { [key: string]: string };
 }
 
+function isPrerendered(routes: any[], route: string) {
+  return !!routes.filter((v:any) => v['id'] == route)[0]?.['prerender'];
+}
+
+function getDeepestPrenderedRoute(routes: any, route: string) {
+  let tempRoute = route;
+  if (!isPrerendered(routes, tempRoute)){
+    while (tempRoute.indexOf('/') > -1) {
+      const lastIndex = tempRoute.lastIndexOf('/');
+      if(!isPrerendered(routes, tempRoute.substring(0, lastIndex))) {
+        tempRoute = tempRoute.substring(0, lastIndex);
+      } else {
+        return tempRoute;
+      }
+    }
+  }
+  return tempRoute;
+}
+
 export function adapter({
   artifactPath = 'build',
   autoDeploy = false,
@@ -96,6 +115,32 @@ export function adapter({
             .filter(Boolean)
         ),
       ];
+      
+      const apiRoutes = [
+        ...new Set(
+          builder.routes.filter(
+            (v: any) => !v['prerender']
+          ).map(
+            (v: any) => v['id'].substring(1)
+          )
+          .map((x: string) => {
+            if(x.includes('/')) {
+              // use routes to fetch the deepest level that is prerendered
+              builder.log(`>>>>>>>>>>>>>${x}<<<<<<<<<<<<<`)
+              return getDeepestPrenderedRoute(builder.routes, x) + '/*';
+            }
+            return '*';
+          })
+        ),
+      ];
+
+      builder.log.minor(`
+========================
+${apiRoutes}
+------------------------
+${routes}
+========================
+      `)
 
       writeFileSync(join(artifactPath, 'routes.json'), JSON.stringify(routes));
 
@@ -124,6 +169,7 @@ export function adapter({
                 STATIC_PATH: join(process.cwd(), static_directory),
                 PRERENDERED_PATH: join(process.cwd(), prerendered_directory),
                 ROUTES: routes,
+                API_ROUTES: apiRoutes,
                 STACKNAME: stackName,
                 FQDN,
                 LOG_RETENTION_DAYS,

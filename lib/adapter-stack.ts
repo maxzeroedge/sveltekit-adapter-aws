@@ -30,6 +30,7 @@ export interface AWSAdapterStackProps extends StackProps {
   uiBucket?: aws_s3.IBucket;
   certificate: aws_certificatemanager.ICertificate;
   hostedZone: aws_route53.IHostedZone;
+  defaultStaticBehaviour?: boolean;
 }
 
 export class AWSAdapterStack extends Stack {
@@ -41,6 +42,7 @@ export class AWSAdapterStack extends Stack {
     super(scope, id, props);
 
     const routes = process.env.ROUTES?.split(',') || [];
+    const apiRoutes = process.env.API_ROUTES?.split(',') || [];
     const projectPath = process.env.PROJECT_PATH;
     const serverPath = process.env.SERVER_PATH;
     const staticPath = process.env.STATIC_PATH;
@@ -86,6 +88,51 @@ export class AWSAdapterStack extends Stack {
       });
     }
 
+    const httpOrigin = new aws_cloudfront_origins.HttpOrigin(Fn.select(1, Fn.split('://', this.httpApi.apiEndpoint)), {
+      protocolPolicy: aws_cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+    });
+
+    const httpOriginBehaviour = {
+      compress: true,
+      viewerProtocolPolicy: aws_cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      allowedMethods: aws_cloudfront.AllowedMethods.ALLOW_ALL,
+      originRequestPolicy: new aws_cloudfront.OriginRequestPolicy(this, 'OriginRequestPolicy', {
+        cookieBehavior: aws_cloudfront.OriginRequestCookieBehavior.all(),
+        queryStringBehavior: aws_cloudfront.OriginRequestQueryStringBehavior.all(),
+        headerBehavior: aws_cloudfront.OriginRequestHeaderBehavior.allowList(
+          'Origin',
+          'Accept-Charset',
+          'Accept',
+          'Access-Control-Request-Method',
+          'Access-Control-Request-Headers',
+          'Referer',
+          'Accept-Language',
+          'Accept-Datetime'
+        ),
+      }),
+      cachePolicy: aws_cloudfront.CachePolicy.CACHING_DISABLED,
+    };
+
+    
+    const oac = new aws_cloudfront.CfnOriginAccessControl(this, 'OAC', {
+      originAccessControlConfig: {
+        name: 'StaticContentOAC',
+        originAccessControlOriginType: 's3',
+        signingBehavior: 'always',
+        signingProtocol: 'sigv4',
+      },
+    });
+    const s3Origin = aws_cloudfront_origins.S3BucketOrigin.withOriginAccessControl(this.bucket, {
+      originAccessControlId: oac.attrId
+    });
+    const s3OriginBehaviour = {
+      compress: true,
+      viewerProtocolPolicy: aws_cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      allowedMethods: aws_cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+      originRequestPolicy: aws_cloudfront.OriginRequestPolicy.USER_AGENT_REFERER_HEADERS,
+      cachePolicy: aws_cloudfront.CachePolicy.CACHING_OPTIMIZED,
+    };
+
     const distribution = new aws_cloudfront.Distribution(this, 'CloudFrontDistribution', {
       priceClass: aws_cloudfront.PriceClass.PRICE_CLASS_100,
       enabled: true,
@@ -99,28 +146,12 @@ export class AWSAdapterStack extends Stack {
             props.certificate.certificateArn
           )
         : undefined,
-      defaultBehavior: {
-        compress: true,
-        origin: new aws_cloudfront_origins.HttpOrigin(Fn.select(1, Fn.split('://', this.httpApi.apiEndpoint)), {
-          protocolPolicy: aws_cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
-        }),
-        viewerProtocolPolicy: aws_cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        allowedMethods: aws_cloudfront.AllowedMethods.ALLOW_ALL,
-        originRequestPolicy: new aws_cloudfront.OriginRequestPolicy(this, 'OriginRequestPolicy', {
-          cookieBehavior: aws_cloudfront.OriginRequestCookieBehavior.all(),
-          queryStringBehavior: aws_cloudfront.OriginRequestQueryStringBehavior.all(),
-          headerBehavior: aws_cloudfront.OriginRequestHeaderBehavior.allowList(
-            'Origin',
-            'Accept-Charset',
-            'Accept',
-            'Access-Control-Request-Method',
-            'Access-Control-Request-Headers',
-            'Referer',
-            'Accept-Language',
-            'Accept-Datetime'
-          ),
-        }),
-        cachePolicy: aws_cloudfront.CachePolicy.CACHING_DISABLED,
+      defaultBehavior: props.defaultStaticBehaviour ? {
+        origin: s3Origin,
+        ...s3OriginBehaviour
+      } : {
+        origin: httpOrigin,
+        ...httpOriginBehaviour
       },
     });
 
@@ -137,25 +168,12 @@ export class AWSAdapterStack extends Stack {
         },
       })
     );
-    
-    const oac = new aws_cloudfront.CfnOriginAccessControl(this, 'OAC', {
-      originAccessControlConfig: {
-        name: 'StaticContentOAC',
-        originAccessControlOriginType: 's3',
-        signingBehavior: 'always',
-        signingProtocol: 'sigv4',
-      },
-    });
 
-
-    const s3Origin = new aws_cloudfront_origins.S3StaticWebsiteOrigin(this.bucket);
     routes.forEach((route) => {
-      distribution.addBehavior(route, s3Origin, {
-        viewerProtocolPolicy: aws_cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        allowedMethods: aws_cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
-        originRequestPolicy: aws_cloudfront.OriginRequestPolicy.USER_AGENT_REFERER_HEADERS,
-        cachePolicy: aws_cloudfront.CachePolicy.CACHING_OPTIMIZED,
-      });
+      distribution.addBehavior(route, s3Origin, s3OriginBehaviour);
+    });
+    apiRoutes.forEach((route) => {
+      distribution.addBehavior(route, httpOrigin, httpOriginBehaviour);
     });
 
     if (process.env.FQDN) {
