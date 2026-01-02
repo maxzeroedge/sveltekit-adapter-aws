@@ -152,6 +152,11 @@ export class AWSAdapterStack extends Stack {
       }
     }
 
+    const domainNames = FQDN ? [FQDN] : [];
+    if (FQDN?.startsWith('www.')) {
+      domainNames.push(FQDN.substring(4));
+    }
+
     const distribution = new aws_cloudfront.Distribution(this, 'CloudFrontDistribution', {
       priceClass: aws_cloudfront.PriceClass.PRICE_CLASS_100,
       enabled: true,
@@ -201,6 +206,13 @@ export class AWSAdapterStack extends Stack {
         target: aws_route53.RecordTarget.fromAlias(new aws_route53_targets.CloudFrontTarget(distribution)),
         zone: props.hostedZone,
       });
+      if (FQDN.startsWith('www.')){
+        new aws_route53.ARecord(this, 'ARecordNoWWW', {
+          recordName: FQDN.substring(4),
+          target: aws_route53.RecordTarget.fromAlias(new aws_route53_targets.CloudFrontTarget(distribution)),
+          zone: props.hostedZone,
+        });
+      }
     }
 
     new aws_s3_deployment.BucketDeployment(this, 'StaticContentDeployment', {

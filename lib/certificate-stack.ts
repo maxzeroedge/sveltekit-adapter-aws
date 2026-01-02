@@ -5,6 +5,7 @@ import {
 } from "aws-cdk-lib/aws-route53";
 import {
     Certificate,
+    CertificateProps,
     CertificateValidation,
     ICertificate
 } from "aws-cdk-lib/aws-certificatemanager";
@@ -34,10 +35,16 @@ export class AWSAdapterCertificateStack extends Stack {
                 props.certificateArn
             );
         } else {
-            this.certificate = new Certificate(this, 'DnsValidatedCertificate', {
+            const certProps: any = {
                 domainName: props.FQDN!,
                 validation: CertificateValidation.fromDns(this.hostedZone),
-            });
+            };
+            if(props.FQDN.startsWith('www.')) {
+                certProps['subjectAlternativeNames'] = [
+                    props.FQDN.substring(4)
+                ];
+            }
+            this.certificate = new Certificate(this, 'DnsValidatedCertificate', certProps);
         }
     }
 }
