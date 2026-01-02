@@ -12,6 +12,7 @@ const { hostedZone, certificate } = new AWSAdapterCertificateStack(app, process.
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: 'us-east-1'
   },
+  certificateArn: process.env.certificateArn,
   crossRegionReferences: true
 });
 
@@ -24,5 +25,8 @@ new AWSAdapterStack(app, process.env.STACKNAME!, {
   },
   hostedZone,
   certificate,
+  defaultStaticBehaviour: process.env.defaultStaticBehaviour === 'true',
+  requestFunctionCode: process.env.requestFunctionCode,
+  responseFunctionCode: process.env.responseFunctionCode,
   crossRegionReferences: true
 });

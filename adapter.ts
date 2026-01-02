@@ -16,6 +16,10 @@ export interface AWSAdapterProps {
   LOG_RETENTION_DAYS?: number;
   MEMORY_SIZE?: number;
   zoneName?: string;
+  certificateArn?: string;
+  defaultStaticBehaviour?: boolean;
+  requestFunctionCode?: string;
+  responseFunctionCode?: string;
   env?: { [key: string]: string };
 }
 
@@ -49,6 +53,10 @@ export function adapter({
   MEMORY_SIZE,
   zoneName = '',
   env = {},
+  certificateArn = '',
+  defaultStaticBehaviour = false,
+  requestFunctionCode = '',
+  responseFunctionCode = '',
 }: AWSAdapterProps = {}) {
   /** @type {import('@sveltejs/kit').Adapter} */
   return {
@@ -175,6 +183,10 @@ ${routes}
                 LOG_RETENTION_DAYS,
                 MEMORY_SIZE,
                 ZONE_NAME: zoneName,
+                certificateArn,
+                defaultStaticBehaviour: !!defaultStaticBehaviour ? "true": "false",
+                requestFunctionCode,
+                responseFunctionCode,
               },
               process.env,
               env

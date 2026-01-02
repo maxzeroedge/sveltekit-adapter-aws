@@ -12,6 +12,8 @@ import { Construct } from "constructs";
 
 export interface AWSAdapterCertificateStackProps extends StackProps {
     FQDN: string;
+    zoneName?: string;
+    certificateArn?: string;
 }
 
 export class AWSAdapterCertificateStack extends Stack {
@@ -27,9 +29,15 @@ export class AWSAdapterCertificateStack extends Stack {
             domainName,
         }) as HostedZone;
 
-        this.certificate = new Certificate(this, 'DnsValidatedCertificate', {
-            domainName: props.FQDN!,
-            validation: CertificateValidation.fromDns(this.hostedZone),
-        });
+        if (props.certificateArn) {
+            this.certificate = Certificate.fromCertificateArn(this, 'DnsValidatedCertificate',
+                props.certificateArn
+            );
+        } else {
+            this.certificate = new Certificate(this, 'DnsValidatedCertificate', {
+                domainName: props.FQDN!,
+                validation: CertificateValidation.fromDns(this.hostedZone),
+            });
+        }
     }
 }
