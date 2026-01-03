@@ -20,6 +20,7 @@ import { CorsHttpMethod, HttpApi, IHttpApi, PayloadFormatVersion } from 'aws-cdk
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { config } from 'dotenv';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { requestFunction } from './functions';
 
 export interface AWSAdapterStackProps extends StackProps {
   FQDN: string;
@@ -131,6 +132,9 @@ export class AWSAdapterStack extends Stack {
       [ props.requestFunctionCode, 'RequestFunction', aws_cloudfront.FunctionEventType.VIEWER_REQUEST ],
       [ props.responseFunctionCode, 'ResponseFunction', aws_cloudfront.FunctionEventType.VIEWER_RESPONSE ]
     ].forEach((v) => {
+      if(props.defaultStaticBehaviour && v[1] === 'RequestFunction' && !v[0]) {
+        v[0] = requestFunction;
+      }
       if(v[0]) {
         const cloudfrontFunction = new aws_cloudfront.Function(this, 'S3' + v[1], {
           code: aws_cloudfront.FunctionCode.fromInline(v[0]),
