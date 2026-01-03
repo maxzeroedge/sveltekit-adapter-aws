@@ -70,7 +70,7 @@ export class AWSAdapterStack extends Stack {
     props.serverHandlerPolicies?.forEach((policy) => this.serverHandler.addToRolePolicy(policy));
 
     this.httpApi = new HttpApi(this, 'API', {
-      apiName: props.stackName + 'API',
+      apiName: id + 'API',
       corsPreflight: {
         allowHeaders: ['*'],
         allowMethods: [CorsHttpMethod.ANY],
