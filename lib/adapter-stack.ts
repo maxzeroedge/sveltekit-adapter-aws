@@ -40,6 +40,7 @@ export class AWSAdapterStack extends Stack {
   bucket: aws_s3.IBucket;
   serverHandler: aws_lambda.IFunction;
   httpApi: IHttpApi;
+  distribution: aws_cloudfront.Distribution;
 
   constructor(scope: Construct, id: string, props: AWSAdapterStackProps) {
     super(scope, id, props);
@@ -161,7 +162,7 @@ export class AWSAdapterStack extends Stack {
       domainNames.push(FQDN.substring(4));
     }
 
-    const distribution = new aws_cloudfront.Distribution(this, 'CloudFrontDistribution', {
+    this.distribution = new aws_cloudfront.Distribution(this, 'CloudFrontDistribution', {
       priceClass: aws_cloudfront.PriceClass.PRICE_CLASS_100,
       enabled: true,
       defaultRootObject: props.defaultStaticBehaviour ? 'index.html' : '',
@@ -191,29 +192,29 @@ export class AWSAdapterStack extends Stack {
         resources: [`${this.bucket.bucketArn}/*`],
         conditions: {
           StringEquals: {
-            'AWS:SourceArn': `arn:aws:cloudfront::${this.account}:distribution/${distribution.distributionId}`,
+            'AWS:SourceArn': `arn:aws:cloudfront::${this.account}:distribution/${this.distribution.distributionId}`,
           },
         },
       })
     );
 
     routes.forEach((route) => {
-      distribution.addBehavior(route, s3Origin, s3OriginBehaviour);
+      this.distribution.addBehavior(route, s3Origin, s3OriginBehaviour);
     });
     apiRoutes.forEach((route) => {
-      distribution.addBehavior(route, httpOrigin, httpOriginBehaviour);
+      this.distribution.addBehavior(route, httpOrigin, httpOriginBehaviour);
     });
 
     if (FQDN) {
       new aws_route53.ARecord(this, 'ARecord', {
         recordName: FQDN,
-        target: aws_route53.RecordTarget.fromAlias(new aws_route53_targets.CloudFrontTarget(distribution)),
+        target: aws_route53.RecordTarget.fromAlias(new aws_route53_targets.CloudFrontTarget(this.distribution)),
         zone: props.hostedZone,
       });
       if (FQDN.startsWith('www.')){
         new aws_route53.ARecord(this, 'ARecordNoWWW', {
           recordName: FQDN.substring(4),
-          target: aws_route53.RecordTarget.fromAlias(new aws_route53_targets.CloudFrontTarget(distribution)),
+          target: aws_route53.RecordTarget.fromAlias(new aws_route53_targets.CloudFrontTarget(this.distribution)),
           zone: props.hostedZone,
         });
       }
@@ -224,12 +225,12 @@ export class AWSAdapterStack extends Stack {
       sources: [aws_s3_deployment.Source.asset(staticPath!), aws_s3_deployment.Source.asset(prerenderedPath!)],
       retainOnDelete: false,
       prune: true,
-      distribution,
+      distribution: this.distribution,
       distributionPaths: ['/*'],
     });
 
     new CfnOutput(this, 'appUrl', {
-      value: FQDN ? `https://${FQDN}` : `https://${distribution.domainName}`,
+      value: FQDN ? `https://${FQDN}` : `https://${this.distribution.domainName}`,
     });
 
     new CfnOutput(this, 'stackName', { value: id });
