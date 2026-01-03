@@ -111,8 +111,7 @@ export class AWSAdapterStack extends Stack {
           'Access-Control-Request-Headers',
           'Referer',
           'Accept-Language',
-          'Accept-Datetime',
-          'Authorization'
+          'Accept-Datetime'
         ),
       }),
       cachePolicy: aws_cloudfront.CachePolicy.CACHING_DISABLED,
