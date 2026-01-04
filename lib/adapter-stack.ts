@@ -15,6 +15,7 @@ import {
   aws_route53_targets,
   aws_cloudfront,
   aws_iam,
+  Tags,
 } from 'aws-cdk-lib';
 import { CorsHttpMethod, HttpApi, IHttpApi, PayloadFormatVersion } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
@@ -163,11 +164,12 @@ export class AWSAdapterStack extends Stack {
     }
 
     this.distribution = new aws_cloudfront.Distribution(this, 'CloudFrontDistribution', {
+      comment: 'Distribution for ' + id,
       priceClass: aws_cloudfront.PriceClass.PRICE_CLASS_100,
       enabled: true,
       defaultRootObject: props.defaultStaticBehaviour ? 'index.html' : '',
       sslSupportMethod: aws_cloudfront.SSLMethod.SNI,
-      domainNames: FQDN ? [FQDN!] : [],
+      domainNames: FQDN ? domainNames : [],
       certificate: FQDN
         ? aws_certificatemanager.Certificate.fromCertificateArn(
             this,
@@ -183,6 +185,7 @@ export class AWSAdapterStack extends Stack {
         ...httpOriginBehaviour
       },
     });
+    Tags.of(this.distribution).add('Name', id);
 
     this.bucket.addToResourcePolicy(
       new PolicyStatement({
@@ -199,9 +202,15 @@ export class AWSAdapterStack extends Stack {
     );
 
     routes.forEach((route) => {
+      if(!route || route == '*' || route == '/*') {
+        return; // To avoid * paths
+      }
       this.distribution.addBehavior(route, s3Origin, s3OriginBehaviour);
     });
     apiRoutes.forEach((route) => {
+      if(!route || route == '*' || route == '/*') {
+        return; // To avoid * paths
+      }
       this.distribution.addBehavior(route, httpOrigin, httpOriginBehaviour);
     });
 

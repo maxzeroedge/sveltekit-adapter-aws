@@ -134,7 +134,6 @@ export function adapter({
           .map((x: string) => {
             if(x.includes('/')) {
               // use routes to fetch the deepest level that is prerendered
-              builder.log(`>>>>>>>>>>>>>${x}<<<<<<<<<<<<<`)
               return getDeepestPrenderedRoute(builder.routes, x) + '/*';
             }
             return '*';
