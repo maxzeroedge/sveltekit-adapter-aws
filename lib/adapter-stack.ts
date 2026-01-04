@@ -233,7 +233,7 @@ export class AWSAdapterStack extends Stack {
       destinationBucket: this.bucket,
       sources: [aws_s3_deployment.Source.asset(staticPath!), aws_s3_deployment.Source.asset(prerenderedPath!)],
       retainOnDelete: false,
-      prune: true,
+      prune: false,
       distribution: this.distribution,
       distributionPaths: ['/*'],
     });
