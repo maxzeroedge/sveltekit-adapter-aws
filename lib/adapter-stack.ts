@@ -106,6 +106,7 @@ export class AWSAdapterStack extends Stack {
         cookieBehavior: aws_cloudfront.OriginRequestCookieBehavior.all(),
         queryStringBehavior: aws_cloudfront.OriginRequestQueryStringBehavior.all(),
         headerBehavior: aws_cloudfront.OriginRequestHeaderBehavior.allowList(
+          'Authorization',
           'Origin',
           'Accept-Charset',
           'Accept',
