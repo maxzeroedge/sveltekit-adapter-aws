@@ -102,11 +102,12 @@ export class AWSAdapterStack extends Stack {
       compress: true,
       viewerProtocolPolicy: aws_cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       allowedMethods: aws_cloudfront.AllowedMethods.ALLOW_ALL,
-      originRequestPolicy: new aws_cloudfront.OriginRequestPolicy(this, 'OriginRequestPolicy', {
+      // ALL_VIEWER forwards all viewer request headers (including Authorization)
+      // to the Lambda origin. A custom allowList cannot include Authorization.
+      originRequestPolicy: props.defaultStaticBehaviour ? new aws_cloudfront.OriginRequestPolicy(this, 'OriginRequestPolicy', {
         cookieBehavior: aws_cloudfront.OriginRequestCookieBehavior.all(),
         queryStringBehavior: aws_cloudfront.OriginRequestQueryStringBehavior.all(),
         headerBehavior: aws_cloudfront.OriginRequestHeaderBehavior.allowList(
-          'Authorization',
           'Origin',
           'Accept-Charset',
           'Accept',
@@ -116,7 +117,7 @@ export class AWSAdapterStack extends Stack {
           'Accept-Language',
           'Accept-Datetime'
         ),
-      }),
+      }) : aws_cloudfront.OriginRequestPolicy.ALL_VIEWER,
       cachePolicy: aws_cloudfront.CachePolicy.CACHING_DISABLED,
     };
 
