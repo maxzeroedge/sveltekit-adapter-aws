@@ -117,7 +117,7 @@ export class AWSAdapterStack extends Stack {
           'Accept-Language',
           'Accept-Datetime'
         ),
-      }) : aws_cloudfront.OriginRequestPolicy.ALL_VIEWER,
+      }) : aws_cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
       cachePolicy: aws_cloudfront.CachePolicy.CACHING_DISABLED,
     };
 
