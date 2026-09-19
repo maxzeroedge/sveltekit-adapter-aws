@@ -21,7 +21,7 @@ importers:
         specifier: ^2.233.0
         version: 2.233.0(constructs@10.4.4)
       constructs:
-        specifier: 10.4.4
+        specifier: ^10.4.4
         version: 10.4.4
       dotenv:
         specifier: 17.2.3
